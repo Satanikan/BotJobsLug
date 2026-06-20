@@ -16,13 +16,13 @@ const {
     sendToChannel
 } = require("./database");
 
-// 🔥 ЗАМЕНИТЕ: Ваш токен бота
+// 🔥 ВАШ ТОКЕН БОТА
 const TOKEN = "8761305853:AAER4h0CUKwlRd_C_6pNgTeErnJhZbjrFwg";
 
-// 🔥 ЗАМЕНИТЕ: Ваш личный ID (из userinfobot)
+// 🔥 ВАШ ЛИЧНЫЙ ID (из userinfobot)
 const ADMIN_CHAT_ID = 5503778921;
 
-// 🔥 ЗАМЕНИТЕ: @username вашего канала (например @job_vacancies_city)
+// 🔥 ID ВАШЕГО КАНАЛА (цифровой или @username)
 const CHANNEL_ID = "-1004423881440"; 
 
 const bot = new Bot(TOKEN);
@@ -188,25 +188,18 @@ bot.command("subscribe", async (ctx) => {
     );
 });
 
+// ==========================================
+// ОБРАБОТЧИК ТЕКСТОВЫХ СООБЩЕНИЙ (ПОЛНОСТЬЮ ИСПРАВЛЕННЫЙ)
+// ==========================================
 bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
     const userId = ctx.from.id;
 
-    // Создание/редактирование резюме
-    if (text.includes(";")) {
-        const parts = text.split(";").map(s => s.trim());
-        if (parts.length === 4) {
-            const [name, experience, skills, phone] = parts;
-            await saveResume(userId, { name, experience, skills, phone });
-            return ctx.reply("✅ Резюме сохранено! Теперь ищите вакансии через /find");
-        }
-    }
-
-    // Кнопки меню
+    // --- КНОПКИ МЕНЮ ---
     if (text === "🔍 Искать вакансии") return bot.command("find", ctx);
     if (text === "📄 Моё резюме") return bot.command("resume", ctx);
 
-    // Обработка подписки
+    // --- ОБРАБОТКА ПОДПИСКИ ---
     if (text.startsWith("🔔") || text.includes("IT") || text.includes("Строительство")) {
         const parts = text.split(";").map(s => s.trim());
         let categories = parts[0];
@@ -215,7 +208,7 @@ bot.on("message:text", async (ctx) => {
         return ctx.reply("✅ Подписка оформлена! Я уведомлю вас о новых вакансиях.");
     }
 
-    // Добавление вакансии от работодателя
+    // --- КНОПКА ДОБАВЛЕНИЯ ВАКАНСИИ ---
     if (text === "📦 Добавить вакансию (для работодателей)") {
         return ctx.reply(
             `📦 <b>Добавление вакансии</b>\n\n` +
@@ -227,21 +220,39 @@ bot.on("message:text", async (ctx) => {
         );
     }
 
-    // Если работодатель прислал вакансию
-    if (text.includes(";") && text.split(";").length === 7) {
-        const parts = text.split(";").map(s => s.trim());
-        const [title, company, description, salary, city, category, contact] = parts;
-        const job = await addJob({ title, company, description, salary, city, category, contact });
+    // --- ОБРАБОТКА РЕЗЮМЕ (4 поля) И ВАКАНСИЙ (от 7 полей) ---
+    if (text.includes(";")) {
+        const parts = text.split(";").map(s => s.trim()).filter(s => s.length > 0);
         
-        // Уведомляем админа о новой вакансии
-        await bot.api.sendMessage(
-            ADMIN_CHAT_ID,
-            `🛡️ <b>Новая вакансия на проверку!</b>\n\n` +
-            `📌 ${job.title}\n🏢 ${job.company}\n💰 ${job.salary}\n📍 ${job.city}\n📝 ${job.description.substring(0, 100)}...`,
-            { parse_mode: "HTML" }
-        );
+        // 1. Если ровно 4 поля — это резюме
+        if (parts.length === 4) {
+            const [name, experience, skills, phone] = parts;
+            await saveResume(userId, { name, experience, skills, phone });
+            return ctx.reply("✅ Резюме сохранено! Теперь ищите вакансии через /find");
+        }
 
-        return ctx.reply("✅ Вакансия отправлена на проверку администратору. Мы опубликуем её в ближайшее время.");
+        // 2. Если 7 или более полей — это вакансия (берём первые 7)
+        if (parts.length >= 7) {
+            const [title, company, description, salary, city, category, contact] = parts.slice(0, 7);
+            const job = await addJob({ title, company, description, salary, city, category, contact });
+            
+            // Отправка админу с обработкой ошибок
+            try {
+                const sentMsg = await bot.api.sendMessage(
+                    ADMIN_CHAT_ID,
+                    `🛡️ <b>НОВАЯ ВАКАНСИЯ НА ПРОВЕРКУ!</b>\n\n` +
+                    `📌 Название: ${job.title}\n🏢 Компания: ${job.company}\n💰 Зарплата: ${job.salary}\n📍 Город: ${job.city}\n📝 Описание: ${job.description.substring(0, 100)}...`,
+                    { parse_mode: "HTML" }
+                );
+                console.log("✅ Уведомление админу успешно отправлено!");
+            } catch (err) {
+                console.error("❌ Ошибка при отправке админу:", err.message);
+            }
+
+            return ctx.reply("✅ Вакансия отправлена на проверку администратору. Мы опубликуем её в ближайшее время.");
+        } else {
+            return ctx.reply("⚠️ Ошибка формата! Для резюме нужно 4 поля, для вакансии 7 полей через точку с запятой.");
+        }
     }
 });
 
