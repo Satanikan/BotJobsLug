@@ -1,8 +1,7 @@
 const { Pool } = require("pg");
 
-// 🔥 ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ External Database URL (Ту же, что у салонного бота)
-// Она у вас: postgresql://salon_db_rzxb_user:9lSYdR5r8w2Ja9kbCayfjKAMjcFqF59S@dpg-d8qii3lckfvc73e98mg0-a/salon_db_rzxb
-const DATABASE_URL = "postgresql://salon_db_rzxb_user:9lSYdR5r8w2Ja9kbCayfjKAMjcFqF59S@dpg-d8qii3lckfvc73e98mg0-a/salon_db_rzxb";
+// 🔥 ЗАМЕНИТЕ: Вставьте вашу External Database URL (из салонного бота)
+const DATABASE_URL = "postgresql://salon_db_rzxb_user:9lSYdR5r8w2Ja9kbCayfjKAMjcFqF59S@dpg-d8qii3lckfvc73e98mg0-a.oregon-postgres.render.com/salon_db_rzxb";
 
 const pool = new Pool({
     connectionString: DATABASE_URL,
@@ -12,7 +11,7 @@ const pool = new Pool({
 async function initDB() {
     const client = await pool.connect();
     try {
-        // Таблица вакансий (с приставкой job_)
+        // Таблица вакансий
         await client.query(`
             CREATE TABLE IF NOT EXISTS job_jobs (
                 id SERIAL PRIMARY KEY,
@@ -28,7 +27,7 @@ async function initDB() {
             );
         `);
 
-        // Таблица резюме (с приставкой job_)
+        // Таблица резюме
         await client.query(`
             CREATE TABLE IF NOT EXISTS job_resumes (
                 user_id VARCHAR(50) PRIMARY KEY,
@@ -39,7 +38,7 @@ async function initDB() {
             );
         `);
 
-        // Таблица подписок (с приставкой job_)
+        // Таблица подписок
         await client.query(`
             CREATE TABLE IF NOT EXISTS job_subscriptions (
                 user_id VARCHAR(50) PRIMARY KEY,
@@ -48,7 +47,7 @@ async function initDB() {
             );
         `);
 
-        console.log("✅ Таблицы для вакансий созданы успешно в общей БД");
+        console.log("✅ Таблицы для вакансий созданы успешно");
     } catch (err) {
         console.error("❌ Ошибка создания таблиц:", err);
     } finally {
@@ -115,6 +114,27 @@ async function removeSubscription(userId) {
     await pool.query("DELETE FROM job_subscriptions WHERE user_id = $1", [userId.toString()]);
 }
 
+// --- ОТПРАВКА В КАНАЛ ---
+async function sendToChannel(bot, job, channelId) {
+    const message = 
+        `📌 <b>${job.title}</b>\n\n` +
+        `🏢 Компания: ${job.company}\n` +
+        `💰 Зарплата: ${job.salary}\n` +
+        `📍 Город: ${job.city}\n` +
+        `📝 Описание:\n${job.description}\n\n` +
+        `📞 Контакт: ${job.contact}\n\n` +
+        `🔍 Чтобы откликнуться, напишите нашему боту!`;
+
+    try {
+        await bot.api.sendMessage(channelId, message, { parse_mode: "HTML" });
+        console.log("✅ Вакансия опубликована в канал!");
+        return true;
+    } catch (err) {
+        console.error("❌ Ошибка отправки в канал:", err.message);
+        return false;
+    }
+}
+
 module.exports = {
     initDB,
     addJob,
@@ -126,5 +146,6 @@ module.exports = {
     saveResume,
     getSubscriptions,
     addSubscription,
-    removeSubscription
+    removeSubscription,
+    sendToChannel
 };
