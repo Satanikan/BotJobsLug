@@ -17,7 +17,7 @@ const {
 } = require("./database");
 
 // 🔥 ЗАМЕНИТЕ: Ваш токен бота
-const TOKEN = process.env.BOT_TOKEN || "8761305853:AAER4h0CUKwlRd_C_6pNgTeErnJhZbjrFwg";
+const TOKEN = "8761305853:AAER4h0CUKwlRd_C_6pNgTeErnJhZbjrFwg";
 
 // 🔥 ЗАМЕНИТЕ: Ваш личный ID (из userinfobot)
 const ADMIN_CHAT_ID = 5503778921;
