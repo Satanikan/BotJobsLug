@@ -12,11 +12,18 @@ const {
     saveResume,
     getSubscriptions,
     addSubscription,
-    removeSubscription
+    removeSubscription,
+    sendToChannel
 } = require("./database");
 
+// 🔥 ЗАМЕНИТЕ: Ваш токен бота
 const TOKEN = process.env.BOT_TOKEN || "8761305853:AAER4h0CUKwlRd_C_6pNgTeErnJhZbjrFwg";
-const ADMIN_CHAT_ID = 5503778921; // ЗАМЕНИТЕ НА ВАШ ID
+
+// 🔥 ЗАМЕНИТЕ: Ваш личный ID (из userinfobot)
+const ADMIN_CHAT_ID = 5503778921;
+
+// 🔥 ЗАМЕНИТЕ: @username вашего канала (например @job_vacancies_city)
+const CHANNEL_ID = "-1004423881440"; 
 
 const bot = new Bot(TOKEN);
 
@@ -73,7 +80,6 @@ bot.command("find", async (ctx) => {
         return ctx.reply("😔 Пока нет вакансий. Подпишитесь, и я пришлю уведомление!");
     }
 
-    // Сохраняем список в сессию пользователя (в память)
     if (!ctx.session) ctx.session = {};
     ctx.session.jobs = jobs;
     ctx.session.currentIndex = 0;
@@ -240,7 +246,7 @@ bot.on("message:text", async (ctx) => {
 });
 
 // ==========================================
-// АДМИН-ПАНЕЛЬ (Только для вас)
+// АДМИН-ПАНЕЛЬ И ПУБЛИКАЦИЯ В КАНАЛ
 // ==========================================
 bot.command("moderate", async (ctx) => {
     if (ctx.from.id !== ADMIN_CHAT_ID) return ctx.reply("⛔ У вас нет прав администратора.");
@@ -270,9 +276,19 @@ bot.on("callback_query:data", async (ctx) => {
     
     if (data.startsWith("publish_")) {
         const id = data.split("_")[1];
+        // 1. Публикуем в базе
         await publishJob(id);
+        // 2. Получаем данные вакансии
+        const jobs = await getPublishedJobs(20);
+        const publishedJob = jobs.find(j => j.id == id);
+        
+        // 3. Отправляем в канал
+        if (publishedJob) {
+            await sendToChannel(bot, publishedJob, CHANNEL_ID);
+        }
+
         await ctx.answerCallbackQuery("✅ Опубликовано!");
-        await ctx.reply("✅ Вакансия опубликована и доступна соискателям.");
+        await ctx.reply("✅ Вакансия опубликована в базе и отправлена в канал.");
     } 
     else if (data.startsWith("delete_")) {
         const id = data.split("_")[1];
@@ -283,14 +299,13 @@ bot.on("callback_query:data", async (ctx) => {
 });
 
 // ==========================================
-// ЗАПУСК БОТА И РАССЫЛКА ПОДПИСЧИКАМ
+// ЗАПУСК БОТА И СЕРВЕР
 // ==========================================
 (async function run() {
     await initDB();
     bot.start();
     console.log("✅ Бот вакансий запущен!");
 
-    // Сервер для UptimeRobot
     const express = require('express');
     const app = express();
     const PORT = process.env.PORT || 3000;
