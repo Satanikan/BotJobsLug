@@ -16,14 +16,14 @@ const {
     sendToChannel
 } = require("./database");
 
-// 🔥 ВАШ ТОКЕН БОТА
-const TOKEN = "8761305853:AAER4h0CUKwlRd_C_6pNgTeErnJhZbjrFwg";
+// 🔥 ВСТАВЬТЕ СЮДА НОВЫЙ ТОКЕН ОТ BOTFATHER
+const TOKEN = "8761305853:AAHqMOxOBpd6QKPWH0Rpx2Nt3jHjh7uhCTU";
 
 // 🔥 ВАШ ЛИЧНЫЙ ID (из userinfobot)
 const ADMIN_CHAT_ID = 5503778921;
 
 // 🔥 ID ВАШЕГО КАНАЛА
-const CHANNEL_ID = "@LuganskJobsChannel"; 
+const CHANNEL_ID = "-1004423881440"; 
 
 const bot = new Bot(TOKEN);
 
@@ -167,8 +167,8 @@ bot.command("start", (ctx) => {
 bot.command("find", showJobsList);
 bot.command("resume", showResume);
 bot.command("subscribe", showSubscription);
-bot.command("edit_resume", showResume); // для удобства перезапуска
-bot.command("addjob", showAddJobForm);  // дополнительная команда
+bot.command("edit_resume", showResume);
+bot.command("addjob", showAddJobForm);
 
 // ==========================================
 // АДМИН-ПАНЕЛЬ И ПУБЛИКАЦИЯ В КАНАЛ
@@ -205,6 +205,7 @@ bot.on("callback_query:data", async (ctx) => {
         const jobs = await getPublishedJobs(20);
         const publishedJob = jobs.find(j => j.id == id);
         
+        // Отправляем в канал ТОЛЬКО ПОСЛЕ НАЖАТИЯ "Опубликовать"
         if (publishedJob) {
             await sendToChannel(bot, publishedJob, CHANNEL_ID);
         }
