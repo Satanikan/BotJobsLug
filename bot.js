@@ -23,7 +23,7 @@ const TOKEN = "8761305853:AAER4h0CUKwlRd_C_6pNgTeErnJhZbjrFwg";
 const ADMIN_CHAT_ID = 5503778921;
 
 // 🔥 ID ВАШЕГО КАНАЛА
-const CHANNEL_ID = "-1004423881440"; 
+const CHANNEL_ID = "@LuganskJobsChannel"; 
 
 const bot = new Bot(TOKEN);
 
