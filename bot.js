@@ -16,13 +16,10 @@ const {
     sendToChannel
 } = require("./database");
 
-// 🔥 ВСТАВЬТЕ СЮДА НОВЫЙ ТОКЕН ОТ BOTFATHER
+// 🔥 ТОКЕН
 const TOKEN = "8761305853:AAHqMOxOBpd6QKPWH0Rpx2Nt3jHjh7uhCTU";
 
-// 🔥 ВАШ ЛИЧНЫЙ ID (из userinfobot)
 const ADMIN_CHAT_ID = 5503778921;
-
-// 🔥 ID ВАШЕГО КАНАЛА
 const CHANNEL_ID = "-1004423881440"; 
 
 const bot = new Bot(TOKEN);
@@ -44,26 +41,17 @@ cron.schedule("*/5 * * * *", async () => {
 bot.catch((err) => console.error("❌ Ошибка бота:", err));
 
 // ==========================================
-// ВЫНЕСЕННАЯ ЛОГИКА (БЕЗОПАСНЫЙ ВЫЗОВ)
+// ВЫНЕСЕННАЯ ЛОГИКА
 // ==========================================
-
-// --- 1. ПОИСК ВАКАНСИЙ (СВАЙП) ---
 async function showJobsList(ctx) {
     const userId = ctx.from.id;
     const resume = await getResume(userId);
-    if (!resume) {
-        return ctx.reply("⚠️ Сначала создайте резюме через /resume!");
-    }
-
+    if (!resume) return ctx.reply("⚠️ Сначала создайте резюме через /resume!");
     const jobs = await getPublishedJobs(20);
-    if (jobs.length === 0) {
-        return ctx.reply("😔 Пока нет вакансий. Подпишитесь, и я пришлю уведомление!");
-    }
-
+    if (jobs.length === 0) return ctx.reply("😔 Пока нет вакансий.");
     if (!ctx.session) ctx.session = {};
     ctx.session.jobs = jobs;
     ctx.session.currentIndex = 0;
-
     await showJob(ctx);
 }
 
@@ -73,84 +61,56 @@ async function showJob(ctx) {
         await ctx.reply("🎉 Вы просмотрели все вакансии! Хотите начать заново? /find");
         return;
     }
-
     const job = session.jobs[session.currentIndex];
     const keyboard = new InlineKeyboard()
         .text("👎 Пропустить", `skip_${session.currentIndex}`).row()
         .text("👍 Откликнуться", `apply_${job.id}`);
-
     await ctx.reply(
         `📌 <b>${job.title}</b>\n\n` +
-        `🏢 Компания: ${job.company}\n` +
-        `💰 Зарплата: ${job.salary}\n` +
-        `📍 Город: ${job.city}\n` +
-        `📝 Описание:\n${job.description}\n\n` +
-        `📞 Контакт: ${job.contact}`,
+        `🏢 Компания: ${job.company}\n💰 Зарплата: ${job.salary}\n📍 Город: ${job.city}\n📝 Описание:\n${job.description}\n\n📞 Контакт: ${job.contact}`,
         { parse_mode: "HTML", reply_markup: keyboard }
     );
 }
 
-// --- 2. РЕЗЮМЕ ---
 async function showResume(ctx) {
     const resume = await getResume(ctx.from.id);
     if (resume) {
         return ctx.reply(
             `📄 <b>Ваше резюме:</b>\n\n` +
-            `Имя: ${resume.name}\n` +
-            `Опыт: ${resume.experience}\n` +
-            `Навыки: ${resume.skills}\n` +
-            `Телефон: ${resume.phone}\n\n` +
-            `Чтобы изменить, введите /edit_resume`,
+            `Имя: ${resume.name}\nОпыт: ${resume.experience}\nНавыки: ${resume.skills}\nТелефон: ${resume.phone}\n\nЧтобы изменить, введите /edit_resume`,
             { parse_mode: "HTML" }
         );
     } else {
         return ctx.reply(
             `📄 <b>Создание резюме за 30 секунд</b>\n\n` +
-            `Введите данные в формате:\n` +
-            `<code>Имя;Опыт;Навыки;Телефон</code>\n\n` +
-            `Пример:\n` +
-            `<code>Иван Иванов;3 года в продажах;CRM, переговоры;+79991234567</code>`,
+            `Введите данные в формате:\n<code>Имя;Опыт;Навыки;Телефон</code>\n\nПример:\n<code>Иван Иванов;3 года в продажах;CRM, переговоры;+79991234567</code>`,
             { parse_mode: "HTML" }
         );
     }
 }
 
-// --- 3. ПОДПИСКИ ---
 async function showSubscription(ctx) {
     return ctx.reply(
         `🔔 <b>Подписка на новые вакансии</b>\n\n` +
-        `Выберите категории (через запятую):\n` +
-        `IT, Строительство, Торговля, Водители, Курьеры\n\n` +
-        `Пример: <code>IT, Водители</code>\n\n` +
-        `Или укажите максимальную зарплату (опционально):\n` +
-        `Пример: <code>IT, Водители;100000</code>`,
+        `Выберите категории (через запятую):\nIT, Строительство, Торговля, Водители, Курьеры\n\nПример: <code>IT, Водители</code>\n\nИли укажите максимальную зарплату: <code>IT, Водители;100000</code>`,
         { parse_mode: "HTML" }
     );
 }
 
-// --- 4. ДОБАВЛЕНИЕ ВАКАНСИИ (Инструкция) ---
 async function showAddJobForm(ctx) {
     return ctx.reply(
         `📦 <b>Добавление вакансии</b>\n\n` +
-        `Введите данные в формате:\n` +
-        `<code>Название;Компания;Описание;Зарплата;Город;Категория;Контакт</code>\n\n` +
-        `Пример:\n` +
-        `<code>Водитель-курьер;ООО Доставка;Срочно нужен водитель;70000;Москва;Курьеры;+79991112233</code>`,
+        `Введите данные в формате:\n<code>Название;Компания;Описание;Зарплата;Город;Категория;Контакт</code>\n\nПример:\n<code>Водитель-курьер;ООО Доставка;Срочно нужен водитель;70000;Москва;Курьеры;+79991112233</code>`,
         { parse_mode: "HTML" }
     );
 }
 
 // ==========================================
-// КОМАНДЫ БОТА (ТЕПЕРЬ ОНИ БЕЗОПАСНЫ)
+// КОМАНДЫ БОТА
 // ==========================================
-
 bot.command("start", (ctx) => {
     ctx.reply("🚀 <b>Поиск работы в городе!</b>\n\n" +
-        "🔍 <b>Как это работает:</b>\n" +
-        "1. Создайте резюме за 30 секунд (/resume)\n" +
-        "2. Листайте вакансии в стиле Tinder (/find)\n" +
-        "3. Откликайтесь одной кнопкой!\n" +
-        "4. Подпишитесь на новые вакансии (/subscribe)",
+        "🔍 Как это работает:\n1. Создайте резюме (/resume)\n2. Листайте вакансии (/find)\n3. Откликайтесь одной кнопкой!\n4. Подпишитесь на новые вакансии (/subscribe)",
         {
             parse_mode: "HTML",
             reply_markup: new Keyboard()
@@ -163,7 +123,6 @@ bot.command("start", (ctx) => {
     );
 });
 
-// Просто привязываем команды к безопасным функциям
 bot.command("find", showJobsList);
 bot.command("resume", showResume);
 bot.command("subscribe", showSubscription);
@@ -171,49 +130,34 @@ bot.command("edit_resume", showResume);
 bot.command("addjob", showAddJobForm);
 
 // ==========================================
-// АДМИН-ПАНЕЛЬ И ПУБЛИКАЦИЯ В КАНАЛ
+// АДМИН-ПАНЕЛЬ И КАНАЛ
 // ==========================================
 bot.command("moderate", async (ctx) => {
     if (ctx.from.id !== ADMIN_CHAT_ID) return ctx.reply("⛔ У вас нет прав администратора.");
-
     const jobs = await getUnpublishedJobs();
-    if (jobs.length === 0) {
-        return ctx.reply("✅ Нет новых вакансий на проверку.");
-    }
-
+    if (jobs.length === 0) return ctx.reply("✅ Нет новых вакансий на проверку.");
     let message = "🛡️ <b>Ожидают проверки:</b>\n\n";
     jobs.forEach((job, i) => {
-        message += `🔹 ${i+1}. <b>${job.title}</b>\n`;
-        message += `   🏢 ${job.company} | 💰 ${job.salary}\n\n`;
+        message += `🔹 ${i+1}. <b>${job.title}</b>\n   🏢 ${job.company} | 💰 ${job.salary}\n\n`;
     });
-
     const keyboard = new InlineKeyboard()
         .text("✅ Опубликовать", `publish_${jobs[0].id}`)
         .text("❌ Удалить", `delete_${jobs[0].id}`);
-
     ctx.reply(message, { parse_mode: "HTML", reply_markup: keyboard });
 });
 
 bot.on("callback_query:data", async (ctx) => {
     if (ctx.from.id !== ADMIN_CHAT_ID) return;
-
     const data = ctx.callbackQuery.data;
-    
     if (data.startsWith("publish_")) {
         const id = data.split("_")[1];
         await publishJob(id);
         const jobs = await getPublishedJobs(20);
         const publishedJob = jobs.find(j => j.id == id);
-        
-        // Отправляем в канал ТОЛЬКО ПОСЛЕ НАЖАТИЯ "Опубликовать"
-        if (publishedJob) {
-            await sendToChannel(bot, publishedJob, CHANNEL_ID);
-        }
-
+        if (publishedJob) await sendToChannel(bot, publishedJob, CHANNEL_ID);
         await ctx.answerCallbackQuery("✅ Опубликовано!");
-        await ctx.reply("✅ Вакансия опубликована в базе и отправлена в канал.");
-    } 
-    else if (data.startsWith("delete_")) {
+        await ctx.reply("✅ Вакансия опубликована в канал.");
+    } else if (data.startsWith("delete_")) {
         const id = data.split("_")[1];
         await deleteJob(id);
         await ctx.answerCallbackQuery("❌ Удалено!");
@@ -222,20 +166,20 @@ bot.on("callback_query:data", async (ctx) => {
 });
 
 // ==========================================
-// ОБРАБОТЧИК ТЕКСТОВЫХ СООБЩЕНИЙ (БЕЗОПАСНЫЙ)
+// ИСПРАВЛЕННЫЙ ОБРАБОТЧИК ТЕКСТА
 // ==========================================
 bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
     const userId = ctx.from.id;
 
-    // --- КНОПКИ МЕНЮ (БЕЗОПАСНЫЙ ВЫЗОВ) ---
+    // 1. КНОПКИ МЕНЮ
     if (text === "🔍 Искать вакансии") return showJobsList(ctx);
     if (text === "📄 Моё резюме") return showResume(ctx);
     if (text === "🔔 Подписаться") return showSubscription(ctx);
     if (text === "📦 Добавить вакансию (для работодателей)") return showAddJobForm(ctx);
 
-    // --- ОБРАБОТКА ПОДПИСКИ (через текст) ---
-    if (text.startsWith("🔔") || text.includes("IT") || text.includes("Строительство")) {
+    // 2. ПОДПИСКА (если есть слова IT, Строительство и т.д.)
+    if (text.includes("IT") || text.includes("Строительство") || text.includes("Торговля") || text.includes("Водители") || text.includes("Курьеры")) {
         const parts = text.split(";").map(s => s.trim());
         let categories = parts[0];
         let maxSalary = parts[1] || "";
@@ -243,23 +187,24 @@ bot.on("message:text", async (ctx) => {
         return ctx.reply("✅ Подписка оформлена! Я уведомлю вас о новых вакансиях.");
     }
 
-    // --- ОБРАБОТКА РЕЗЮМЕ (4 поля) И ВАКАНСИЙ (от 7 полей) ---
+    // 3. РЕЗЮМЕ (ровно 4 поля)
     if (text.includes(";")) {
         const parts = text.split(";").map(s => s.trim()).filter(s => s.length > 0);
-        
-        // 1. Если ровно 4 поля — это резюме
         if (parts.length === 4) {
             const [name, experience, skills, phone] = parts;
             await saveResume(userId, { name, experience, skills, phone });
             return ctx.reply("✅ Резюме сохранено! Теперь ищите вакансии через /find");
         }
+    }
 
-        // 2. Если 7 или более полей — это вакансия (берём первые 7)
+    // 4. ВАКАНСИЯ (7 и более полей) — ЭТУ ЛОГИКУ МЫ ПЕРЕМЕСТИЛИ СЮДА!
+    if (text.includes(";")) {
+        const parts = text.split(";").map(s => s.trim()).filter(s => s.length > 0);
         if (parts.length >= 7) {
             const [title, company, description, salary, city, category, contact] = parts.slice(0, 7);
             const job = await addJob({ title, company, description, salary, city, category, contact });
             
-            // Отправка админу с обработкой ошибок
+            // Отправка админу
             try {
                 await bot.api.sendMessage(
                     ADMIN_CHAT_ID,
@@ -273,10 +218,12 @@ bot.on("message:text", async (ctx) => {
             }
 
             return ctx.reply("✅ Вакансия отправлена на проверку администратору. Мы опубликуем её в ближайшее время.");
-        } else {
-            return ctx.reply("⚠️ Ошибка формата! Для резюме нужно 4 поля, для вакансии 7 полей через точку с запятой.");
         }
     }
+
+    // 5. ЕСЛИ НИ ОДНО УСЛОВИЕ НЕ ПОДОШЛО
+    // Если пользователь написал что-то непонятное, бот просто молчит или вежливо отвечает
+    return ctx.reply("Я не совсем понял ваш запрос. Пожалуйста, воспользуйтесь кнопками меню или командами /start.");
 });
 
 // ==========================================
