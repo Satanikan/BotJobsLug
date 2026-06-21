@@ -97,14 +97,6 @@ async function showSubscription(ctx) {
     );
 }
 
-async function showAddJobForm(ctx) {
-    return ctx.reply(
-        `📦 <b>Добавление вакансии</b>\n\n` +
-        `Введите данные в формате:\n<code>Название;Компания;Описание;Зарплата;Город;Категория;Контакт</code>\n\nПример:\n<code>Водитель-курьер;ООО Доставка;Срочно нужен водитель;70000;Москва;Курьеры;+79991112233</code>`,
-        { parse_mode: "HTML" }
-    );
-}
-
 // ==========================================
 // КОМАНДЫ БОТА
 // ==========================================
@@ -127,7 +119,21 @@ bot.command("find", showJobsList);
 bot.command("resume", showResume);
 bot.command("subscribe", showSubscription);
 bot.command("edit_resume", showResume);
-bot.command("addjob", showAddJobForm);
+
+// ==========================================
+// НОВАЯ ЛОГИКА: ДОБАВЛЕНИЕ ВАКАНСИИ (БЕЗ ЖЁСТКОГО ФОРМАТА)
+// ==========================================
+bot.command("addjob", async (ctx) => {
+    ctx.reply(
+        `📦 <b>Режим добавления вакансии активирован!</b>\n\n` +
+        `Теперь просто отправьте мне текст вашей вакансии любым удобным способом.\n` +
+        `Я перешлю его администратору на проверку.`,
+        { parse_mode: "HTML" }
+    );
+    // Устанавливаем флаг, что пользователь в режиме добавления вакансии
+    if (!ctx.session) ctx.session = {};
+    ctx.session.addingJob = true;
+});
 
 // ==========================================
 // АДМИН-ПАНЕЛЬ И КАНАЛ
@@ -166,7 +172,7 @@ bot.on("callback_query:data", async (ctx) => {
 });
 
 // ==========================================
-// ИСПРАВЛЕННЫЙ ОБРАБОТЧИК ТЕКСТА
+// ИСПРАВЛЕННЫЙ ОБРАБОТЧИК ТЕКСТА (БЕЗ ЖЁСТКОГО ФОРМАТА)
 // ==========================================
 bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
@@ -176,9 +182,12 @@ bot.on("message:text", async (ctx) => {
     if (text === "🔍 Искать вакансии") return showJobsList(ctx);
     if (text === "📄 Моё резюме") return showResume(ctx);
     if (text === "🔔 Подписаться") return showSubscription(ctx);
-    if (text === "📦 Добавить вакансию (для работодателей)") return showAddJobForm(ctx);
+    if (text === "📦 Добавить вакансию (для работодателей)") {
+        // Если нажали кнопку, просто запускаем команду addjob
+        return bot.command("addjob", ctx);
+    }
 
-    // 2. ПОДПИСКА (если есть слова IT, Строительство и т.д.)
+    // 2. ПОДПИСКА
     if (text.includes("IT") || text.includes("Строительство") || text.includes("Торговля") || text.includes("Водители") || text.includes("Курьеры")) {
         const parts = text.split(";").map(s => s.trim());
         let categories = parts[0];
@@ -197,33 +206,46 @@ bot.on("message:text", async (ctx) => {
         }
     }
 
-    // 4. ВАКАНСИЯ (7 и более полей) — ЭТУ ЛОГИКУ МЫ ПЕРЕМЕСТИЛИ СЮДА!
-    if (text.includes(";")) {
-        const parts = text.split(";").map(s => s.trim()).filter(s => s.length > 0);
-        if (parts.length >= 7) {
-            const [title, company, description, salary, city, category, contact] = parts.slice(0, 7);
-            const job = await addJob({ title, company, description, salary, city, category, contact });
-            
-            // Отправка админу
-            try {
-                await bot.api.sendMessage(
-                    ADMIN_CHAT_ID,
-                    `🛡️ <b>НОВАЯ ВАКАНСИЯ НА ПРОВЕРКУ!</b>\n\n` +
-                    `📌 Название: ${job.title}\n🏢 Компания: ${job.company}\n💰 Зарплата: ${job.salary}\n📍 Город: ${job.city}\n📝 Описание: ${job.description.substring(0, 100)}...`,
-                    { parse_mode: "HTML" }
-                );
-                console.log("✅ Уведомление админу успешно отправлено!");
-            } catch (err) {
-                console.error("❌ Ошибка при отправке админу:", err.message);
-            }
-
-            return ctx.reply("✅ Вакансия отправлена на проверку администратору. Мы опубликуем её в ближайшее время.");
+    // 4. ГЛАВНОЕ ИЗМЕНЕНИЕ: ПРИЁМ ВАКАНСИИ В СВОБОДНОМ ФОРМАТЕ
+    if (ctx.session && ctx.session.addingJob) {
+        // Если пользователь в режиме добавления вакансии
+        const jobTitle = text.split('\n')[0] || "Вакансия без названия";
+        const jobDescription = text;
+        
+        const job = await addJob({ 
+            title: jobTitle, 
+            company: "Не указана", 
+            description: jobDescription, 
+            salary: "Договорная", 
+            city: "Не указан", 
+            category: "Другое", 
+            contact: "Не указан" 
+        });
+        
+        // Отправка админу
+        try {
+            await bot.api.sendMessage(
+                ADMIN_CHAT_ID,
+                `🛡️ <b>НОВАЯ ВАКАНСИЯ НА ПРОВЕРКУ!</b>\n\n` +
+                `📌 Название: ${job.title}\n📝 Полный текст:\n${job.description}`,
+                { parse_mode: "HTML" }
+            );
+            console.log("✅ Уведомление админу успешно отправлено!");
+        } catch (err) {
+            console.error("❌ Ошибка при отправке админу:", err.message);
         }
+
+        // Сбрасываем флаг
+        ctx.session.addingJob = false;
+        return ctx.reply("✅ Вакансия отправлена на проверку администратору. Мы опубликуем её в ближайшее время.");
     }
 
     // 5. ЕСЛИ НИ ОДНО УСЛОВИЕ НЕ ПОДОШЛО
-    // Если пользователь написал что-то непонятное, бот просто молчит или вежливо отвечает
-    return ctx.reply("Я не совсем понял ваш запрос. Пожалуйста, воспользуйтесь кнопками меню или командами /start.");
+    // Просто вежливо отвечаем и предлагаем помощь
+    return ctx.reply(
+        `Я не совсем понял ваш запрос. Пожалуйста, воспользуйтесь кнопками меню или командами.\n\n` +
+        `Доступные команды:\n/find - поиск вакансий\n/resume - резюме\n/subscribe - подписка\n/addjob - добавить вакансию`
+    );
 });
 
 // ==========================================
